@@ -1,29 +1,119 @@
-import React from "react";
+import { ResizeMode, Video } from "expo-av";
+import * as ImagePicker from "expo-image-picker";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Button,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-
 export default function CloudinaryUploaderScreen() {
+  const [pickerMediaUri, setPickerMediaUri] = useState<null | string>(null);
+  const [mediaType, setMediaType] = useState<
+    "image" | "video" | "livePhoto" | "pairedVideo" | undefined
+  >("image");
+  const video = useRef<any>(null);
+  const [status, setStatus] = useState<{ isPlaying: boolean }>({
+    isPlaying: false,
+  });
+
+  // Chọn ảnh hoặc video từ thư viện
+  const pickMediaFromLibrary = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images", "livePhotos", "videos"],
+      allowsEditing: true, // Cho phép chỉnh sửa ảnh
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      // Lấy ra uri của file
+      setPickerMediaUri(result.assets[0].uri);
+
+      // Lấy ra loại file (image Or video)
+      setMediaType(result?.assets[0]?.type);
+    }
+  };
+
+  // Chọn ảnh từ camera
+  const pickMediaFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync(); // Xin quyền truy cập vào camera
+
+    if (status !== ImagePicker.PermissionStatus.GRANTED) {
+      Alert.alert(
+        "Thông báo",
+        "Bạn cần cấp quyền truy cập camera để thực hiện chức năng này."
+      );
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images", "livePhotos", "videos"],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      // Lấy ra uri của file
+      setPickerMediaUri(result.assets[0].uri);
+
+      // Lấy ra loại file (image Or video)
+      setMediaType(result?.assets[0]?.type);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.header}>Upload Media lên Cloudinary</Text>
 
       <View style={styles.buttonGroup}>
-        <Button title="Chọn từ Thư viện" />
-        <Button title="Chụp/Quay với Camera" />
+        <Button onPress={pickMediaFromLibrary} title="Chọn từ Thư viện" />
+        <Button onPress={pickMediaFromCamera} title="Chụp/Quay với Camera" />
       </View>
 
       <View style={styles.previewContainer}>
-        <Text style={styles.previewTitle}>Tài nguyên đã chọn/chụp:</Text>
-        <View style={styles.videoPlaceholder}>
-          <Text style={styles.videoText}>Video đã chọn</Text>
-          <Text style={styles.videoUriText}>conmeo.mp4</Text>
-        </View>
+        {pickerMediaUri && (
+          <>
+            <Text style={styles.previewTitle}>Tài nguyên đã chọn/chụp:</Text>
+            {mediaType === "image" ? (
+              <Image
+                height={250}
+                width={250}
+                source={{ uri: pickerMediaUri }}
+                style={styles.mediaPreview}
+              />
+            ) : (
+              <>
+                <View style={styles.videoPlaceholder}>
+                  <Text style={styles.videoText}>Video đã chọn</Text>
+                  <Video
+                    ref={video}
+                    style={styles.mediaPreview}
+                    source={{
+                      uri: pickerMediaUri,
+                    }}
+                    useNativeControls
+                    resizeMode={ResizeMode.CONTAIN}
+                    isLooping
+                  />
+                  <Button
+                    title={status.isPlaying ? "Pause" : "Play"}
+                    onPress={() =>
+                      status.isPlaying
+                        ? video.current.pauseAsync()
+                        : video.current.playAsync()
+                    }
+                  />
+                </View>
+              </>
+            )}
+          </>
+        )}
+
         <Button title={"Tải lên Cloudinary"} color="#28a745" />
         <ActivityIndicator
           size="large"
